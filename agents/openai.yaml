@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "阻抗图绘制"
+  short_description: "安全解析 NOX、面积归一化并生成标准 Origin 阻抗图"
+  default_prompt: "使用 $eis-impedance-plotting 处理 NOX 阻抗数据，并生成原始与最终 Nyquist 图。"
