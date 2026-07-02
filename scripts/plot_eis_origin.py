@@ -16,6 +16,18 @@ COLORS = [
     "#2166AC", "#67A9CF", "#B7D4E8", "#F4A582",
     "#EF8A62", "#D6604D", "#C51B3A",
 ]
+LAYER_WIDTH_CM = 14.0
+LAYER_HEIGHT_CM = 10.0
+LEGEND_RIGHT_GAP_FRACTION = 0.006
+LEGEND_TOP_GAP_FRACTION = 0.032
+LEGEND_RENDERING_PAD_FRACTION = 0.114
+LEGEND_LEFT_GAP_FRACTION = 0.01
+LEGEND_BOTTOM_GAP_FRACTION = 0.01
+LEGEND_OVERFLOW_NUDGE_FRACTION = 0.001
+SAMPLE_LEFT_FRACTION = 0.06
+SAMPLE_TOP_GAP_FRACTION = 0.08
+LABEL_COLLISION_GAP_FRACTION = 0.02
+MIN_LABEL_FONT_SIZE = 12
 
 
 def series_info(path: Path) -> tuple[tuple[int, int | str], str, str]:
@@ -104,6 +116,112 @@ def set_text_style(label, font_index: int, size: float) -> None:
     label.set_float("fsize", size)
     label.set_int("bold", 0)
     label.color = "#000000"
+
+
+def text_size_in_data_units(label, axis_span: float) -> tuple[float, float]:
+    width_inches = max(float(label.obj.GetWidth()), 0.0) / 1000.0
+    height_inches = max(float(label.obj.GetHeight()), 0.0) / 1000.0
+    width_data = width_inches / (LAYER_WIDTH_CM / 2.54) * axis_span
+    height_data = height_inches / (LAYER_HEIGHT_CM / 2.54) * axis_span
+    return width_data, height_data
+
+
+def text_bounds(label, axis_span: float) -> tuple[float, float, float, float]:
+    width, height = text_size_in_data_units(label, axis_span)
+    left = label.get_float("x1")
+    top = label.get_float("y1")
+    return left, left + width, top - height, top
+
+
+def legend_bounds(legend, axis_span: float) -> tuple[float, float, float, float]:
+    left, right, bottom, top = text_bounds(legend, axis_span)
+    return left, right + LEGEND_RENDERING_PAD_FRACTION * axis_span, bottom, top
+
+
+def bounds_overlap(
+    first: tuple[float, float, float, float],
+    second: tuple[float, float, float, float],
+    gap: float,
+) -> bool:
+    first_left, first_right, first_bottom, first_top = first
+    second_left, second_right, second_bottom, second_top = second
+    return not (
+        first_right + gap <= second_left
+        or second_right + gap <= first_left
+        or first_top + gap <= second_bottom
+        or second_top + gap <= first_bottom
+    )
+
+
+def update_origin_layout() -> None:
+    op.lt_exec("doc -uw;sec -p 0.2;")
+
+
+def align_legend_to_right_axis(legend, axis_low: float, axis_high: float, axis_span: float) -> None:
+    left_limit = axis_low + LEGEND_LEFT_GAP_FRACTION * axis_span
+    bottom_limit = axis_low + LEGEND_BOTTOM_GAP_FRACTION * axis_span
+    target_right = axis_high - LEGEND_RIGHT_GAP_FRACTION * axis_span
+    target_top = axis_high - LEGEND_TOP_GAP_FRACTION * axis_span
+
+    for _attempt in range(12):
+        update_origin_layout()
+        legend_width, _legend_height = text_size_in_data_units(legend, axis_span)
+        legend_width += LEGEND_RENDERING_PAD_FRACTION * axis_span
+        legend.set_float("x1", max(left_limit, target_right - legend_width))
+        legend.set_float("y1", target_top)
+        update_origin_layout()
+
+        left, right, bottom, top = legend_bounds(legend, axis_span)
+        right_overflow = right - target_right
+        bottom_overflow = bottom_limit - bottom
+        if right_overflow <= 1e-12 and bottom_overflow <= 1e-12 and top <= axis_high:
+            return
+
+        if right_overflow > 0 and left > left_limit + 1e-12:
+            legend.set_float(
+                "x1",
+                max(left_limit, legend.get_float("x1") - right_overflow - LEGEND_OVERFLOW_NUDGE_FRACTION * axis_span),
+            )
+            update_origin_layout()
+            continue
+
+        font_size = legend.get_float("fsize")
+        if font_size <= MIN_LABEL_FONT_SIZE:
+            break
+        legend.set_float("fsize", font_size - 1)
+
+    left, right, bottom, top = legend_bounds(legend, axis_span)
+    if left < axis_low - 1e-12 or right > axis_high + 1e-12 or bottom < axis_low - 1e-12 or top > axis_high + 1e-12:
+        raise RuntimeError("legend cannot fit inside the graph layer without touching or crossing an axis")
+
+
+def avoid_sample_legend_overlap(sample, legend, axis_low: float, axis_span: float) -> None:
+    gap = LABEL_COLLISION_GAP_FRACTION * axis_span
+    for _attempt in range(12):
+        update_origin_layout()
+        sample_box = text_bounds(sample, axis_span)
+        legend_box = legend_bounds(legend, axis_span)
+        if not bounds_overlap(sample_box, legend_box, gap):
+            return
+
+        _sample_left, _sample_right, sample_bottom, sample_top = sample_box
+        _legend_left, _legend_right, legend_bottom, _legend_top = legend_box
+        sample_height = sample_top - sample_bottom
+        new_top = legend_bottom - gap
+        min_top = axis_low + sample_height + gap
+
+        if new_top >= min_top:
+            sample.set_float("y1", new_top)
+        else:
+            sample.set_float("y1", min_top)
+            font_size = sample.get_float("fsize")
+            if font_size <= MIN_LABEL_FONT_SIZE:
+                break
+            sample.set_float("fsize", font_size - 1)
+        update_origin_layout()
+
+    if bounds_overlap(text_bounds(sample, axis_span), legend_bounds(legend, axis_span), gap):
+        raise RuntimeError("sample label overlaps the legend after automatic layout adjustment")
 
 
 def safe_stem(value: str) -> str:
@@ -196,7 +314,7 @@ def build_plot(input_dir: Path, output_dir: Path, sample_label: str, intercept_z
         )
         op.lt_exec(
             "page.updatetoprinter=0;"
-            "layer.unit=3;layer.left=3;layer.top=2.7;layer.width=14;layer.height=10;"
+            f"layer.unit=3;layer.left=3;layer.top=2.7;layer.width={LAYER_WIDTH_CM};layer.height={LAYER_HEIGHT_CM};"
             + axis_script
             + "layer.x.showGrids=0;layer.y.showGrids=0;"
             "layer.x.showopposite=1;layer.y.showopposite=1;"
@@ -219,8 +337,8 @@ def build_plot(input_dir: Path, output_dir: Path, sample_label: str, intercept_z
 
         sample = layer.add_label(
             sample_label,
-            axis_low + 0.06 * axis_span,
-            axis_high - 0.08 * axis_span,
+            axis_low + SAMPLE_LEFT_FRACTION * axis_span,
+            axis_high - SAMPLE_TOP_GAP_FRACTION * axis_span,
         )
         set_text_style(sample, font_index, 22)
 
@@ -233,14 +351,14 @@ def build_plot(input_dir: Path, output_dir: Path, sample_label: str, intercept_z
             for index, (_sheet, legend_text) in enumerate(sheets)
         )
         legend.set_int("attach", 0)
-        legend.set_float("x1", axis_high - 0.288 * axis_span)
-        legend.set_float("y1", axis_high - 0.032 * axis_span)
         legend.set_int("border", 0)
         legend.set_int("background", 0)
         set_text_style(legend, font_index, 17)
+        align_legend_to_right_axis(legend, axis_low, axis_high, axis_span)
+        avoid_sample_legend_overlap(sample, legend, axis_low, axis_span)
 
         graph.activate()
-        op.lt_exec("doc -uw;sec -p 0.2;")
+        update_origin_layout()
 
         suffix = "final" if intercept_zero else "original"
         stem = f"{safe_stem(sample_label)}_EIS_{suffix}"
