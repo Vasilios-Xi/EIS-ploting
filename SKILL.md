@@ -47,7 +47,8 @@ Resolve `scripts/` relative to this skill directory. The workflow requires Windo
 - Use filled circle markers, solid connecting lines, and the blue-to-red series palette.
 - Use identical X/Y ranges and major increments; choose a nice common range that covers all plotted data.
 - Keep the top and right axis lines but remove their major and minor ticks.
-- Place the legend against the right axis with only a minimal anti-clipping gap.
+- Place the legend so the rendered legend's right edge is inside the right axis line by exactly 1% of the bottom X-axis length; never let the rendered legend bounds touch/cross the right axis line or leave the graph layer.
+- After placing the legend, verify that the legend and sample label do not overlap; if their rendered bounding boxes overlap, move the sample label downward until they are separated while keeping both objects inside the layer.
 - Parse names such as `-5O2` as `5% O₂` and sort those series numerically.
 - Export PNG at 1800 px width.
 
@@ -71,5 +72,5 @@ After execution:
 1. Confirm every NOX file produced at least one nonempty CSV.
 2. Confirm all normalized values are finite and use the supplied `A`.
 3. Confirm both OPJU files and both PNG files exist.
-4. Inspect both PNGs for clipping, correct legend order, a tight right-aligned legend, and no top/right ticks.
+4. Inspect both PNGs for clipping, correct legend order, a legend whose right edge is inside the right axis line by 1% of the bottom X-axis length, no legend/sample-label overlap, and no top/right ticks.
 5. Confirm the final curves begin at the interpolated leftmost X-axis intercept rather than at the acquisition first point.

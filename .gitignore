@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+.build_deps/
+build/
+dist/
+test-output/
+
+NOX处理结果/
+原始EIS图/
+最终EIS图/
