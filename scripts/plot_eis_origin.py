@@ -8,8 +8,10 @@ import csv
 import math
 import re
 from pathlib import Path
+from typing import Any
 
-import originpro as op
+
+op: Any = None
 
 
 COLORS = [
@@ -28,6 +30,31 @@ SAMPLE_LEFT_FRACTION = 0.06
 SAMPLE_TOP_GAP_FRACTION = 0.08
 LABEL_COLLISION_GAP_FRACTION = 0.02
 MIN_LABEL_FONT_SIZE = 12
+
+
+def get_originpro():
+    """Load the official external Origin API only when plotting is requested."""
+
+    global op
+    if op is None:
+        try:
+            import originpro as origin_api
+        except ImportError as exc:
+            raise RuntimeError(
+                "The official originpro package is required for Origin automation."
+            ) from exc
+        op = origin_api
+    return op
+
+
+def close_origin() -> None:
+    """Close the external Origin instance if one was created."""
+
+    if op is not None:
+        try:
+            op.exit()
+        except Exception:
+            pass
 
 
 def series_info(path: Path) -> tuple[tuple[int, int | str], str, str]:
@@ -229,7 +256,15 @@ def safe_stem(value: str) -> str:
     return cleaned or "EIS"
 
 
-def build_plot(input_dir: Path, output_dir: Path, sample_label: str, intercept_zero: bool = False) -> dict[str, str]:
+def build_plot(
+    input_dir: Path,
+    output_dir: Path,
+    sample_label: str,
+    intercept_zero: bool = False,
+    *,
+    close_origin_on_exit: bool = True,
+) -> dict[str, str]:
+    get_originpro()
     input_dir = input_dir.resolve()
     output_dir = output_dir.resolve()
     csv_files = list(input_dir.glob("*_area_normalized.csv"))
@@ -371,7 +406,8 @@ def build_plot(input_dir: Path, output_dir: Path, sample_label: str, intercept_z
             raise RuntimeError("Origin failed to export PNG")
         return {"opju": str(opju), "png": str(png)}
     finally:
-        op.exit()
+        if close_origin_on_exit:
+            close_origin()
 
 
 def main() -> int:
