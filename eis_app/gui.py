@@ -30,6 +30,8 @@ from .core import (
 APP_NAME = "Origin EIS 阻抗图绘制工具"
 WINDOW_SIZE = "1120x750"
 PREVIEW_SIZE = (440, 330)
+MIN_ORIGIN_YEAR = 2021
+ORIGIN_REQUIREMENT = "Origin 2021/2021b 或更高版本"
 
 
 def resource_icon() -> Path:
@@ -119,7 +121,9 @@ def origin_status() -> dict[str, Any]:
         if match:
             years.append(int(match.group(1)))
     registered = origin_com_registered()
-    compatible = registered and (not years or max(years) >= 2021)
+    compatible = registered and (
+        not years or max(years) >= MIN_ORIGIN_YEAR
+    )
     if entries:
         display = " / ".join(
             f"{entry['name']} {entry['version']}".strip()
@@ -433,9 +437,14 @@ class EISApplication:
         if status["compatible"]:
             self.origin_var.set(f"✓ {status['display']}（COM 可用）")
         elif status["com_registered"]:
-            self.origin_var.set(f"⚠ {status['display']}（需要 Origin 2021+）")
+            self.origin_var.set(
+                f"⚠ {status['display']}（需要 Origin 2021/2021b+）"
+            )
         else:
-            self.origin_var.set("✗ 未检测到 Origin COM；请安装并启动一次 Origin。")
+            self.origin_var.set(
+                "✗ 未检测到 Origin COM；请安装 Origin 2021/2021b+ "
+                "并至少启动一次。"
+            )
 
     def _after_input_selected(self, selected: str) -> None:
         path = Path(selected)
@@ -526,6 +535,21 @@ class EISApplication:
             inferred = infer_sample_label(input_path)
         except Exception as exc:
             messagebox.showerror("输入无效", str(exc))
+            return
+        origin = origin_status()
+        if not origin["com_registered"]:
+            messagebox.showerror(
+                "Origin 不可用",
+                f"未检测到 Origin COM。请安装 {ORIGIN_REQUIREMENT}，"
+                "并至少正常启动一次 Origin。",
+            )
+            return
+        if origin["years"] and max(origin["years"]) < MIN_ORIGIN_YEAR:
+            messagebox.showerror(
+                "Origin 版本过低",
+                f"当前 Origin 版本低于 {MIN_ORIGIN_YEAR}；"
+                f"本软件需要 {ORIGIN_REQUIREMENT}。",
+            )
             return
         label = self.label_var.get().strip() or inferred
         existing = existing_output_folders(output_path)

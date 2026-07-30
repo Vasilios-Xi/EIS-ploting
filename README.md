@@ -19,8 +19,12 @@
 限制，不能直接控制本机 Origin 或保存 `.opju`，因此 Windows EXE 才能完整保留
 skill 的功能。
 
-目标电脑仍需安装并授权 Origin 2021 或更高版本。EXE 内已包含官方 `originpro`
+目标电脑仍需安装并授权 Origin 2021/2021b 或更高版本。EXE 内已包含官方 `originpro`
 外部 Python 包、NOX 解析器和图片校验依赖。
+
+绘图仅使用 Origin 2021 已支持的基础二维图、轴和文本对象。每个工程保存及 PNG
+导出完成后，程序会先切换到空白工程，再关闭 Origin；发布临时结果时对 Windows
+共享冲突进行限时重试，避免 `.opju` 尚被 Origin 占用时触发 WinError 32。
 
 ## 使用方法
 

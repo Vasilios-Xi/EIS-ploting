@@ -26,7 +26,7 @@ py scripts/run_eis_workflow.py "<NOX file or folder>" `
   --sample-label "<optional sample label>"
 ```
 
-Resolve `scripts/` relative to this skill directory. The workflow requires Windows, a locally installed Origin, and the official `originpro` Python package. If Origin automation is unavailable, report the dependency problem; do not replace OPJU output with another plotting backend.
+Resolve `scripts/` relative to this skill directory. The workflow requires Windows, Origin 2021/2021b or newer, and the official `originpro` Python package. If Origin automation is unavailable, report the dependency problem; do not replace OPJU output with another plotting backend.
 
 ## Processing rules
 
@@ -74,3 +74,4 @@ After execution:
 3. Confirm both OPJU files and both PNG files exist.
 4. Inspect both PNGs for clipping, correct legend order, a legend whose right edge is inside the right axis line by 1% of the bottom X-axis length, no legend/sample-label overlap, and no top/right ticks.
 5. Confirm the final curves begin at the interpolated leftmost X-axis intercept rather than at the acquisition first point.
+6. Confirm Origin detached each saved project and released both OPJU files before publishing the staged results.
