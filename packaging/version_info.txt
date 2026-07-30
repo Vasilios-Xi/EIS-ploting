@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),
-    prodvers=(1, 0, 0, 0),
+    filevers=(1, 1, 0, 0),
+    prodvers=(1, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,11 +16,11 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Vasilios-Xi'),
           StringStruct('FileDescription', 'Origin EIS 阻抗图绘制工具'),
-          StringStruct('FileVersion', '1.0.0'),
+          StringStruct('FileVersion', '1.1.0'),
           StringStruct('InternalName', 'Origin-EIS-Plotter'),
           StringStruct('OriginalFilename', 'Origin-EIS-Plotter.exe'),
           StringStruct('ProductName', 'Origin EIS Plotter'),
-          StringStruct('ProductVersion', '1.0.0')
+          StringStruct('ProductVersion', '1.1.0')
         ]
       )
     ]),

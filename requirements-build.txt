@@ -1,3 +1,4 @@
 originpro==1.1.15
+OriginExt==1.2.5
 Pillow>=10,<13
 pyinstaller>=6.10,<7

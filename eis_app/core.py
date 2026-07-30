@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import csv
 import math
+import os
 import re
 import shutil
 import tempfile
+import time
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -145,6 +148,35 @@ def existing_output_folders(output_directory: Path | str) -> list[Path]:
     ]
 
 
+def _retry_sharing_violation(
+    operation: Callable[[], Any],
+    *,
+    timeout_seconds: float = 15.0,
+    delay_seconds: float = 0.2,
+) -> Any:
+    """Retry a filesystem operation while Origin releases a Windows file lock."""
+
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            return operation()
+        except OSError as exc:
+            sharing_violation = isinstance(exc, PermissionError) or getattr(
+                exc,
+                "winerror",
+                None,
+            ) in (32, 33)
+            if not sharing_violation or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay_seconds)
+
+
+def _copy_tree_for_publish(source: Path, target: Path) -> None:
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+
+
 def _publish_stage(
     stage_root: Path,
     output_directory: Path,
@@ -165,8 +197,17 @@ def _publish_stage(
         if target.exists():
             if not target.is_dir():
                 raise RuntimeError(f"固定输出路径不是文件夹，拒绝覆盖：{target}")
-            shutil.rmtree(target)
-        shutil.copytree(source, target)
+        publishing = output_directory / f".{name}.publishing-{uuid.uuid4().hex}"
+        try:
+            _retry_sharing_violation(
+                lambda: _copy_tree_for_publish(source, publishing)
+            )
+            if target.exists():
+                _retry_sharing_violation(lambda: shutil.rmtree(target))
+            _retry_sharing_violation(lambda: os.replace(publishing, target))
+        finally:
+            if publishing.exists():
+                _retry_sharing_violation(lambda: shutil.rmtree(publishing))
 
 
 def run_eis_job(

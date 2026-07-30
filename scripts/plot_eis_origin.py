@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import math
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +57,8 @@ def close_origin() -> None:
             op.exit()
         except Exception:
             pass
+        finally:
+            gc.collect()
 
 
 def series_info(path: Path) -> tuple[tuple[int, int | str], str, str]:
@@ -404,7 +408,14 @@ def build_plot(
         exported = graph.save_fig(str(png), type="png", width=1800)
         if not exported or not Path(exported).exists():
             raise RuntimeError("Origin failed to export PNG")
-        return {"opju": str(opju), "png": str(png)}
+        result = {"opju": str(opju), "png": str(png)}
+
+        # Origin keeps the active project open after save. Detach it before the
+        # caller verifies or publishes the OPJU so Origin 2021 and later cannot
+        # leave a transient WinError 32 sharing lock on the saved file.
+        op.new()
+        time.sleep(0.2)
+        return result
     finally:
         if close_origin_on_exit:
             close_origin()
